@@ -47,7 +47,7 @@ SoftwareSerial SerialAT(2, 3);  // RX, TX
 #endif
 
 // See all AT commands, if wanted
-// #define DUMP_AT_COMMANDS
+#define DUMP_AT_COMMANDS
 
 // Define the serial console for debug prints, if needed
 #define TINY_GSM_DEBUG SerialMon
@@ -56,7 +56,7 @@ SoftwareSerial SerialAT(2, 3);  // RX, TX
 // NOTE:  DO NOT AUTOBAUD in production code.  Once you've established
 // communication, set a fixed baud rate using modem.setBaud(#).
 #define GSM_AUTOBAUD_MIN 9600
-#define GSM_AUTOBAUD_MAX 57600
+#define GSM_AUTOBAUD_MAX 115200
 
 // Add a reception delay, if needed.
 // This may be needed for a fast processor at a slow baud rate.
@@ -65,7 +65,7 @@ SoftwareSerial SerialAT(2, 3);  // RX, TX
 /*
  * Tests enabled
  */
-#define TINY_GSM_TEST_GPRS true
+#define TINY_GSM_TEST_GPRS false
 #define TINY_GSM_TEST_WIFI false
 #define TINY_GSM_TEST_TCP true
 #define TINY_GSM_TEST_SSL false
@@ -81,9 +81,30 @@ SoftwareSerial SerialAT(2, 3);  // RX, TX
 // disconnect and power down modem after tests
 #define TINY_GSM_POWERDOWN true
 
+#define BAND_PREF_LTE_BAND1                       0x1
+#define BAND_PREF_LTE_BAND2                       0x2
+#define BAND_PREF_LTE_BAND3                       0x4
+#define BAND_PREF_LTE_BAND4                       0x8
+#define BAND_PREF_LTE_BAND5                      0x10
+#define BAND_PREF_LTE_BAND8                      0x80
+#define BAND_PREF_LTE_BAND12                    0x800
+#define BAND_PREF_LTE_BAND13                   0x1000
+#define BAND_PREF_LTE_BAND18                  0x20000
+#define BAND_PREF_LTE_BAND19                  0x40000
+#define BAND_PREF_LTE_BAND20                  0x80000
+#define BAND_PREF_LTE_BAND25                0x1000000
+#define BAND_PREF_LTE_BAND28                0x8000000
+#define BAND_PREF_LTE_BAND31               0x40000000
+#define BAND_PREF_LTE_BAND66      0x20000000000000000
+#define BAND_PREF_LTE_BAND71     0x400000000000000000
+#define BAND_PREF_LTE_BAND72     0x800000000000000000
+#define BAND_PREF_LTE_BAND73    0x1000000000000000000
+#define BAND_PREF_LTE_BAND85  0x100000000000000000000
+#define BAND_PREF_LTE_SELECTED (BAND_PREF_LTE_BAND2 + BAND_PREF_LTE_BAND4 + BAND_PREF_LTE_BAND5 + BAND_PREF_LTE_BAND28 + BAND_PREF_LTE_BAND66)
+
 // set GSM PIN, if any
 #define GSM_PIN ""
-
+# define BG77_POWER_KEY WB_IO1
 // Set phone numbers, if you want to test SMS and Calls
 // #define SMS_TARGET  "+380xxxxxxxxx"
 // #define CALL_TARGET "+380xxxxxxxxx"
@@ -125,20 +146,76 @@ TinyGsm        modem(debugger);
 TinyGsm        modem(SerialAT);
 #endif
 
+void powerUp()
+{
+  pinMode(WB_IO2, OUTPUT);
+  digitalWrite(WB_IO2, HIGH);
+
+  time_t serial_timeout = millis();
+  Serial.begin(115200);
+  while (!Serial)
+  {
+    if ((millis() - serial_timeout) < 5000)
+    {
+      delay(100);
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  // Check if the modem is already awake
+  time_t timeout = millis();
+  bool moduleSleeps = true;
+  Serial1.begin(115200);
+  delay(1000);
+  Serial1.println("ATI");
+  // BG77 init
+  while ((millis() - timeout) < 4000)
+  {
+    if (Serial1.available())
+    {
+      String result = Serial1.readString();
+      Serial.println("Modem response after start:");
+      Serial.println(result);
+      moduleSleeps = false;
+    }
+  }
+  if (moduleSleeps)
+  {
+    // Module slept, wake it up
+    pinMode(BG77_POWER_KEY, OUTPUT);
+    digitalWrite(BG77_POWER_KEY, 0);
+    delay(1000);
+    digitalWrite(BG77_POWER_KEY, 1);
+    delay(2000);
+    digitalWrite(BG77_POWER_KEY, 0);
+    delay(1000);
+  }
+  Serial.println("BG77 power up!");
+  delay(1000);
+}
+
 void setup() {
   // Set console baud rate
   SerialMon.begin(115200);
   delay(10);
 
-  // !!!!!!!!!!!
-  // Set your reset, enable, power pins here
-  // !!!!!!!!!!!
+  powerUp();
 
   DBG("Wait...");
   // Set GSM module baud rate
   TinyGsmAutoBaud(SerialAT, GSM_AUTOBAUD_MIN, GSM_AUTOBAUD_MAX);
   // SerialAT.begin(9600);
   delay(6000);
+  modem.sendAT(GF("+QCFG=\"band\",0,8000000,8000000,1"));
+  modem.waitResponse(300);
+  modem.sendAT(GF("+COPS=0"));
+  modem.waitResponse(300);
+  modem.sendAT(GF("+QCFG=\"nwscanseq\",030201,1"));
+  modem.waitResponse(300);
+
 }
 
 void loop() {
@@ -178,7 +255,9 @@ void loop() {
   // The XBee must run the gprsConnect function BEFORE waiting for network!
   modem.gprsConnect(apn, gprsUser, gprsPass);
 #endif
+  modem.sendAT(GF("+COPS=?"));
 
+  modem.waitResponse(200000);
   DBG("Waiting for network...");
   if (!modem.waitForNetwork(600000L, true)) {
     delay(10000);

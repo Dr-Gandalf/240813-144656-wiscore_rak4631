@@ -65,7 +65,7 @@ SoftwareSerial SerialAT(2, 3);  // RX, TX
 /*
  * Tests enabled
  */
-#define TINY_GSM_TEST_GPRS false
+#define TINY_GSM_TEST_GPRS true
 #define TINY_GSM_TEST_WIFI false
 #define TINY_GSM_TEST_TCP true
 #define TINY_GSM_TEST_SSL false
@@ -209,11 +209,11 @@ void setup() {
   TinyGsmAutoBaud(SerialAT, GSM_AUTOBAUD_MIN, GSM_AUTOBAUD_MAX);
   // SerialAT.begin(9600);
   delay(6000);
-  modem.sendAT(GF("+QCFG=\"band\",0,8000000,8000000,1"));
+  modem.sendAT(GF("+QCFG=\"band\",0,100002000000000F0E189F,10004200000000090E189F,1"));
   modem.waitResponse(300);
   modem.sendAT(GF("+COPS=0"));
   modem.waitResponse(300);
-  modem.sendAT(GF("+QCFG=\"nwscanseq\",030201,1"));
+  modem.sendAT(GF("+QCFG=\"nwscanseq\",00,1"));
   modem.waitResponse(300);
 
 }

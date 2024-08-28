@@ -72,9 +72,9 @@ SoftwareSerial SerialAT(2, 3);  // RX, TX
 #define TINY_GSM_TEST_GPRS true
 #define TINY_GSM_TEST_WIFI false
 #define TINY_GSM_TEST_TCP true
-#define TINY_GSM_TEST_SSL true
-#define TINY_GSM_TEST_CALL true
-#define TINY_GSM_TEST_SMS true
+#define TINY_GSM_TEST_SSL false
+#define TINY_GSM_TEST_CALL false
+#define TINY_GSM_TEST_SMS false
 #define TINY_GSM_TEST_USSD true
 #define TINY_GSM_TEST_BATTERY true
 #define TINY_GSM_TEST_TEMPERATURE true
